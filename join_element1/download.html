@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Untitled_16 Downloader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: inline-block; }
+        select, button { padding: 10px; font-size: 16px; margin: 10px; border-radius: 5px; border: 1px solid #ccc; }
+        button { background-color: #f1c40f; color: #333; font-weight: bold; cursor: pointer; border: none; transition: 0.3s; }
+        button:hover { background-color: #d4ac0d; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #status { margin-top: 15px; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h3>Untitled_16 システム配布</h3>
+    
+    <div>
+        <label for="mode">自動ダウンロード設定:</label><br>
+        <select id="mode">
+            <option value="ON" style="color=gold">ON (起動時に自動更新する)</option>
+            <option value="OFF" style="color=black">OFF (毎回手動で更新する)</option>
+        </select>
+    </div>
+
+    <button id="dl-btn" onclick="buildZip()">最新版をZIPでダウンロード</button>
+    <p>※解凍してから使ってください。<a>
+    <div id="status"></div>
+</div>
+
+<script>
+    // --- 設定項目 ---
+    const GITHUB_USER = "ks-seed0310"; // あなたのGitHubユーザー名
+    const REPO_NAME = "join_element_1"; // リポジトリ名に変えてください
+    const BRANCH = "main";
+    
+    // ダウンロードするファイルリスト（.ascもセット）
+    const fileList = [
+        "Untitled_16.py", "Untitled_16.py.asc",
+        "u16_imp1.py", "u16_imp1.py.asc",
+        "u16_imp2.py", "u16_imp2.py.asc",
+        "my_pubkey.asc"
+    ];
+
+    async function buildZip() {
+        const btn = document.getElementById('dl-btn');
+        const status = document.getElementById('status');
+        const mode = document.getElementById('mode').value;
+        const zip = new JSZip();
+        
+        btn.disabled = true;
+        status.innerText = "GitHubからファイルを収集しています...";
+
+        try {
+            const rawBase = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/refs/heads/${BRANCH}/`;
+
+            // 各ファイルをフェッチしてZIPに追加
+            for (const fileName of fileList) {
+                status.innerText = `${fileName} を取得中...`;
+                const response = await fetch(rawBase + fileName);
+                if (!response.ok) throw new Error(`${fileName} が見つかりません`);
+                const content = await response.text();
+                zip.file(fileName, content);
+            }
+
+            // モードが OFF の場合、トリガーファイルを同梱する
+            if (mode === "OFF") {
+                status.innerText = "更新停止キー(eld)を生成中...";
+                zip.file("joinelement1_no_update.eld", "This file disables auto-update.");
+            }
+
+            status.innerText = "ZIPアーカイブを作成中...";
+            const blob = await zip.generateAsync({type: "blob"});
+            
+            // ダウンロード実行
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `join_element1_latest.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            status.innerText = "✅ ダウンロード完了！解凍して実行してください。";
+        } catch (err) {
+            console.error(err);
+            status.innerText = "❌ エラー: " + err.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
